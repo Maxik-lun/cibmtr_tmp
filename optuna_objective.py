@@ -8,12 +8,12 @@ from src.metric import eval_score, CustomMetric, MultiCustomMetric
 from optuna.integration import XGBoostPruningCallback, CatBoostPruningCallback
 
 def create_xgb_objective(data, FEATURES, TARGET, test_size = 0.3, 
-                         booster = 'gbtree', early_stopping_rounds = 100):
+                         booster = 'gbtree', n_rounds = 1000, early_stopping_rounds = 100):
     def objective(trial: optuna.Trial):
         rs = ShuffleSplit(2, test_size=test_size, random_state=13)
         train_index, test_index = next(rs.split(data))
         xgb_params = {
-            'n_estimators': 1000,
+            'n_estimators': n_rounds,
             'max_depth': trial.suggest_int("max_depth", 4, 12, step=2),
             'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
             'colsample_bylevel': trial.suggest_float('colsample_bylevel', 0.5, 1.0),
@@ -44,7 +44,7 @@ def create_xgb_objective(data, FEATURES, TARGET, test_size = 0.3,
         # model validation
         meta_df = data.loc[test_index, ["ID","efs","efs_time","race_group"]].copy()
         def custom_metric(y_true, y_pred):
-            return eval_score(y_true, y_pred, meta_df = meta_df)
+            return -eval_score(y_true, y_pred, meta_df = meta_df)
         x_train = data.loc[train_index,FEATURES].copy()
         x_valid = data.loc[test_index,FEATURES].copy()
         y_train = data.loc[train_index,TARGET]
@@ -63,12 +63,13 @@ def create_xgb_objective(data, FEATURES, TARGET, test_size = 0.3,
         return metric_score
     return objective
 
-def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3, early_stopping_rounds = 100):
+def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3,
+                        n_rounds = 1000, early_stopping_rounds = 100):
     def objective(trial: optuna.Trial):
         rs = ShuffleSplit(2, test_size=test_size, random_state=13)
         train_index, test_index = next(rs.split(data))
         cb_params = {
-            'n_estimators': 1000, 'early_stopping_rounds': early_stopping_rounds,
+            'n_estimators': n_rounds, 'early_stopping_rounds': early_stopping_rounds,
             'max_depth': trial.suggest_int("max_depth", 4, 16,  step=2),
             'colsample_bylevel': trial.suggest_float('colsample_bylevel', 0.5, 1.0),#rsm
             "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 0.01, 10.0, log=True),
