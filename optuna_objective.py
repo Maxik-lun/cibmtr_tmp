@@ -1,11 +1,14 @@
 import optuna
 import xgboost as xgb
+import numpy as np
 from catboost import CatBoostRegressor
+from catboost.utils import CatBoostError
 from sklearn.model_selection import ShuffleSplit
 from src.metric import eval_score, CustomMetric, MultiCustomMetric
 from optuna.integration import XGBoostPruningCallback, CatBoostPruningCallback
 
-def create_xgb_objective(data, FEATURES, TARGET, test_size = 0.3, booster = 'gbtree'):
+def create_xgb_objective(data, FEATURES, TARGET, test_size = 0.3, 
+                         booster = 'gbtree', early_stopping_rounds = 100):
     def objective(trial: optuna.Trial):
         rs = ShuffleSplit(2, test_size=test_size, random_state=13)
         train_index, test_index = next(rs.split(data))
@@ -32,7 +35,7 @@ def create_xgb_objective(data, FEATURES, TARGET, test_size = 0.3, booster = 'gbt
             xgb_params["rate_drop"] = trial.suggest_float("rate_drop", 1e-8, 0.5, log=True)
             xgb_params["skip_drop"] = trial.suggest_float("skip_drop", 1e-8, 0.5, log=True)
         else:
-            xgb_params['early_stopping_rounds'] = 50
+            xgb_params['early_stopping_rounds'] = early_stopping_rounds
         if TARGET == 'efs_time_cox':
                 xgb_params['objective'] = 'survival:cox'
         else:
@@ -60,12 +63,12 @@ def create_xgb_objective(data, FEATURES, TARGET, test_size = 0.3, booster = 'gbt
         return metric_score
     return objective
 
-def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3):
+def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3, early_stopping_rounds = 100):
     def objective(trial: optuna.Trial):
         rs = ShuffleSplit(2, test_size=test_size, random_state=13)
         train_index, test_index = next(rs.split(data))
         cb_params = {
-            'n_estimators': 1000, 'early_stopping_rounds': 50,
+            'n_estimators': 1000, 'early_stopping_rounds': early_stopping_rounds,
             'max_depth': trial.suggest_int("max_depth", 4, 16,  step=2),
             'colsample_bylevel': trial.suggest_float('colsample_bylevel', 0.5, 1.0),#rsm
             "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 0.01, 10.0, log=True),
@@ -94,7 +97,7 @@ def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3):
             y_valid = data.loc[test_index,TARGET]
         elif TARGET == 'aft':
             dist_param = trial.suggest_categorical('aft_dist', ['Normal', 'Logistic', 'Extreme'])
-            scale_param = trial.suggest_float("aft_scale", 0.001, 10.0, log=True)
+            scale_param = trial.suggest_float("aft_scale", 0.01, 10.0, log=True)
             cb_params['objective'] = f'SurvivalAft:dist={dist_param};scale={scale_param}'
             y_train = data.loc[train_index, ['cb_lb', 'cb_ub']]
             y_valid = data.loc[test_index, ['cb_lb', 'cb_ub']]
@@ -107,22 +110,28 @@ def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3):
         x_train = data.loc[train_index,FEATURES].copy()
         x_valid = data.loc[test_index,FEATURES].copy()
         if TARGET == 'aft':
-            pruning_callback = CatBoostPruningCallback(trial, 'MultiCustomMetric')
-            eval_metric = MultiCustomMetric(meta_df, test_index, train_index) # SurvivalAft
+            pruning_callback = CatBoostPruningCallback(trial, 'SurvivalAft')
+            eval_metric = "SurvivalAft"
         else:
             pruning_callback = CatBoostPruningCallback(trial, 'CustomMetric')
             eval_metric = CustomMetric(meta_df, test_index, train_index)
-        model = CatBoostRegressor(**cb_params, random_state=11, cat_features=CATS,
+        model = CatBoostRegressor(**cb_params, random_state=42, cat_features=CATS,
                                  eval_metric = eval_metric)
-        model.fit(
-            x_train, y_train,
-            eval_set=[(x_valid, y_valid)],
-            callbacks = [pruning_callback],
-            verbose=500 
-        )
+        try:
+            model.fit(
+                x_train, y_train,
+                eval_set=[(x_valid, y_valid)],
+                callbacks = [pruning_callback],
+                verbose=500 
+            )
+        except CatBoostError:
+            return np.inf
         # evoke pruning manually.
         pruning_callback.check_pruned()
         y_pred = model.predict(x_valid)
-        metric_score = eval_score(y_valid, y_pred, meta_df.loc[test_index])
+        if TARGET == 'aft':
+            metric_score = model.get_best_score()['validation']['SurvivalAft']
+        else:
+            metric_score = eval_score(y_valid, y_pred, meta_df.loc[test_index])
         return metric_score
     return objective
