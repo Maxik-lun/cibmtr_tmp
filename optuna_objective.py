@@ -78,8 +78,8 @@ def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3,
             'one_hot_max_size': trial.suggest_int('one_hot_max_size', 2, 22, step = 5),
             # 'fold_permutation_block': trial.suggest_int("fold_permutation_block", 1, 500, 10),
             'eta': trial.suggest_float("eta", 0.005, 1.0, log=True),
-            'leaf_estimation_method': trial.suggest_categorical(
-                 'leaf_estimation_method', ['Newton', 'Gradient']),
+            # 'leaf_estimation_method': trial.suggest_categorical(
+            #      'leaf_estimation_method', ['Newton', 'Gradient']),
             'grow_policy': trial.suggest_categorical(
                  'grow_policy', ['SymmetricTree', 'Depthwise', 'Lossguide']),
             'bootstrap_type': trial.suggest_categorical(
@@ -118,15 +118,15 @@ def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3,
             eval_metric = CustomMetric(meta_df, test_index, train_index)
         model = CatBoostRegressor(**cb_params, random_state=42, cat_features=CATS,
                                  eval_metric = eval_metric)
-        try:
-            model.fit(
-                x_train, y_train,
-                eval_set=[(x_valid, y_valid)],
-                callbacks = [pruning_callback],
-                verbose=500 
-            )
-        except CatBoostError:
-            return np.inf
+        # try:
+        model.fit(
+            x_train, y_train,
+            eval_set=[(x_valid, y_valid)],
+            callbacks = [pruning_callback],
+            verbose=500 
+        )
+        # except CatBoostError:
+        #     raise optuna.
         # evoke pruning manually.
         pruning_callback.check_pruned()
         y_pred = model.predict(x_valid)
