@@ -59,7 +59,7 @@ def create_xgb_objective(data, FEATURES, TARGET, test_size = 0.3,
             verbose=500 
         )
         y_pred = model.predict(x_valid)
-        metric_score = eval_score(y_valid, y_pred, meta_df)
+        metric_score = custom_metric(y_valid, y_pred)
         return metric_score
     return objective
 
