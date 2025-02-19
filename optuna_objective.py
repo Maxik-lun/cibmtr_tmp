@@ -118,15 +118,15 @@ def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3,
             eval_metric = CustomMetric(meta_df, test_index, train_index)
         model = CatBoostRegressor(**cb_params, random_state=42, cat_features=CATS,
                                  eval_metric = eval_metric)
-        # try:
-        model.fit(
-            x_train, y_train,
-            eval_set=[(x_valid, y_valid)],
-            callbacks = [pruning_callback],
-            verbose=500 
-        )
-        # except CatBoostError:
-        #     raise optuna.
+        try:
+            model.fit(
+                x_train, y_train,
+                eval_set=[(x_valid, y_valid)],
+                callbacks = [pruning_callback],
+                verbose=500 
+            )
+        except CatBoostError:
+            return np.nan
         # evoke pruning manually.
         pruning_callback.check_pruned()
         y_pred = model.predict(x_valid)
