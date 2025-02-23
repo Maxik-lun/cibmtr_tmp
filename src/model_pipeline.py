@@ -6,7 +6,7 @@ import xgboost as xgb
 from sklearn.model_selection import KFold, ShuffleSplit, cross_val_predict
 from .metric import score
 
-def kfold_validation(model, data, FEATURES, TARGET):
+def kfold_validation(model, data, FEATURES, TARGET, reverse = False):
     kf = KFold(n_splits=ct.FOLDS, shuffle=True, random_state=42)
     model_oof = np.zeros(len(data))
     for i, (train_index, test_index) in enumerate(kf.split(data)):
@@ -23,7 +23,7 @@ def kfold_validation(model, data, FEATURES, TARGET):
             y_valid = data.loc[test_index,TARGET]
         model.fit(x_train, y_train, verbose=500)
         # INFER OOF
-        model_oof[test_index] = model.predict(x_valid)
+        model_oof[test_index] = model.predict(x_valid) * (-1 if reverse else 1)
     true_df = data[["ID","efs","efs_time","race_group"]].copy()
     pred_df = data[["ID"]].copy()
     pred_df["prediction"] = model_oof
