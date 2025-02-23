@@ -21,27 +21,14 @@ def kfold_validation(model, data, FEATURES, TARGET):
         else:
             y_train = data.loc[train_index,TARGET]
             y_valid = data.loc[test_index,TARGET]
-        model.fit(
-            x_train, y_train,
-            eval_set=[(x_valid, y_valid)],  
-            verbose=500 
-        )
-        # elif aft == 'xgb':
-        #     dtrain = xgb.DMatrix(x_train)
-        #     dtrain.set_float_info('label_lower_bound', data.loc[train_index, 'xgb_lb'])
-        #     dtrain.set_float_info('label_upper_bound', data.loc[train_index, 'xgb_ub'])
-        #     dval = xgb.DMatrix(x_valid)
-        #     dval.set_float_info('label_lower_bound', data.loc[test_index, 'xgb_lb'])
-        #     dval.set_float_info('label_upper_bound', data.loc[test_index, 'xgb_ub'])
-        #     bst = xgb.train(xgb_params, dtrain,
-        #         evals=[(dtrain, 'train')])
+        model.fit(x_train, y_train, verbose=500)
         # INFER OOF
         model_oof[test_index] = model.predict(x_valid)
     true_df = data[["ID","efs","efs_time","race_group"]].copy()
     pred_df = data[["ID"]].copy()
     pred_df["prediction"] = model_oof
     metric_score = score(true_df.copy(), pred_df.copy(), "ID")
-    return model_oof, metric_score
+    return pred_df, metric_score
 
 def simple_validation(model, data, FEATURES, TARGET, test_size = 0.3):
     rs = ShuffleSplit(2, test_size=test_size, random_state=13)

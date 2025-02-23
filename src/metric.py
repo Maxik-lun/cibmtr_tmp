@@ -40,10 +40,6 @@ def score(solution: pd.DataFrame, submission: pd.DataFrame, row_id_column_name: 
     >>> score(y_true.copy(), y_pred.copy(), row_id_column_name)
     0.75
     """
-    
-    del solution[row_id_column_name]
-    del submission[row_id_column_name]
-    
     event_label = 'efs'
     interval_label = 'efs_time'
     prediction_label = 'prediction'
@@ -51,7 +47,7 @@ def score(solution: pd.DataFrame, submission: pd.DataFrame, row_id_column_name: 
         if not pandas.api.types.is_numeric_dtype(submission[col]):
             raise ParticipantVisibleError(f'Submission column {col} must be a number')
     # Merging solution and submission dfs on ID
-    merged_df = pd.concat([solution, submission], axis=1)
+    merged_df = pd.merge(solution, submission, on = row_id_column_name)
     merged_df.reset_index(inplace=True)
     merged_df_race_dict = dict(merged_df.groupby(['race_group'], observed = True).groups)
     metric_list = []
