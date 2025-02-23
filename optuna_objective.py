@@ -111,8 +111,8 @@ def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3,
         x_train = data.loc[train_index,FEATURES].copy()
         x_valid = data.loc[test_index,FEATURES].copy()
         if TARGET == 'aft':
-            pruning_callback = CatBoostPruningCallback(trial, 'SurvivalAft')
-            eval_metric = "SurvivalAft"
+            pruning_callback = CatBoostPruningCallback(trial, 'MultiCustomMetric')
+            eval_metric = MultiCustomMetric(meta_df, test_index, train_index)
         else:
             pruning_callback = CatBoostPruningCallback(trial, 'CustomMetric')
             eval_metric = CustomMetric(meta_df, test_index, train_index)
@@ -130,9 +130,6 @@ def create_cb_objective(data, FEATURES, TARGET, CATS, test_size = 0.3,
         # evoke pruning manually.
         pruning_callback.check_pruned()
         y_pred = model.predict(x_valid)
-        if TARGET == 'aft':
-            metric_score = model.get_best_score()['validation']['SurvivalAft']
-        else:
-            metric_score = eval_score(y_valid, y_pred, meta_df.loc[test_index])
+        metric_score = eval_score(y_valid, y_pred, meta_df.loc[test_index])
         return metric_score
     return objective
