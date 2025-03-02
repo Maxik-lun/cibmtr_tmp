@@ -21,7 +21,7 @@ def kfold_validation(model, data, FEATURES, TARGET, reverse = False):
         else:
             y_train = data.loc[train_index,TARGET]
             y_valid = data.loc[test_index,TARGET]
-        model.fit(x_train, y_train, verbose=500)
+        model.fit(x_train, y_train)
         # INFER OOF
         model_oof[test_index] = model.predict(x_valid) * (-1 if reverse else 1)
     true_df = data[["ID","efs","efs_time","race_group"]].copy()
