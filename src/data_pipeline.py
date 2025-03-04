@@ -38,9 +38,11 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None):
     combined_df = combine_train_test(train, test)
     # new features
     combined_df = add_features(combined_df, NUMS, CATS)
-    NEW_FEATURES = [c for c in combined_df.columns if not c in ct.RMV and c != 'df_kind']
     # data cleaning numerical
     combined_df = recalculate_hla_sums(combined_df)
+    # new features added
+    FEATURES = [c for c in combined_df.columns if not c in ct.RMV and c != 'df_kind']
+    NUMS = [c for c in FEATURES if not c in CATS]
     num_df = knn_impute(combined_df, NUMS)
     combined_df[NUMS] = num_df[NUMS]
     # data cleaning categorical
@@ -60,7 +62,7 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None):
         'eval_metric': 'Accuracy',
         'loss_function': 'MultiClass',
     }
-    cat_df = catboost_iterimpute(combined_df, CATS, NEW_FEATURES, MISS_COLS, cat_params)
+    cat_df = catboost_iterimpute(combined_df, CATS, FEATURES, MISS_COLS, cat_params)
     combined_df[CATS] = cat_df[CATS]
     # for xgb
     for c in CATS:
