@@ -31,7 +31,7 @@ def baseline_preprocess(train_path = None, test_path = None, data_info = None):
     FEATURES = [c for c in train.columns if not c in ct.RMV]
     return train, test, CATS, FEATURES
 
-def advanced_preprocess(train_path = None, test_path = None, data_info = None):
+def advanced_preprocess(train_path = None, test_path = None, data_info = None, threshold = 0.8):
     train, test, CATS = prepare_data(train_path, test_path, data_info)
     FEATURES = [c for c in train.columns if not c in ct.RMV]
     NUMS = [c for c in FEATURES if not c in CATS]
@@ -62,7 +62,7 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None):
         'eval_metric': 'Accuracy',
         'loss_function': 'MultiClass',
     }
-    cat_df = catboost_iterimpute(combined_df, CATS, FEATURES, MISS_COLS, cat_params)
+    cat_df = catboost_iterimpute(combined_df, CATS, FEATURES, MISS_COLS, cat_params, threshold)
     combined_df[CATS] = cat_df[CATS]
     # for xgb
     for c in CATS:
