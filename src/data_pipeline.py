@@ -42,10 +42,6 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None, t
     # data cleaning numerical
     num_df = knn_impute(combined_df, NUMS)
     combined_df[NUMS] = num_df[NUMS]
-    # new features
-    combined_df = add_features(combined_df, NUMS)
-    FEATURES = [c for c in combined_df.columns if not c in ct.RMV and c != 'df_kind']
-    NUMS = [c for c in FEATURES if not c in CATS]
     # data cleaning categorical
     MISS_COLS = ['conditioning_intensity', 'cyto_score', 'tce_imm_match', 
                  'tce_div_match', 'cyto_score_detail', 'mrd_hct', 'tce_match']
@@ -65,6 +61,10 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None, t
     }
     cat_df = catboost_iterimpute(combined_df, CATS, FEATURES, MISS_COLS, cat_params, threshold)
     combined_df[CATS] = cat_df[CATS]
+    # new features
+    combined_df = add_features(combined_df, NUMS)
+    FEATURES = [c for c in combined_df.columns if not c in ct.RMV and c != 'df_kind']
+    NUMS = [c for c in FEATURES if not c in CATS]
     # for xgb
     for c in CATS:
         combined_df[c] = combined_df[c].astype('category')
