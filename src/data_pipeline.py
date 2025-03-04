@@ -1,4 +1,4 @@
-from .get_data import prepare_data, add_features, combine_train_test, recalculate_hla_sums
+from .get_data import prepare_data, add_features, combine_train_test
 from .imputation import knn_impute, catboost_iterimpute
 from . import constants as ct
 from . import target_gen as tg
@@ -36,15 +36,16 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None, t
     FEATURES = [c for c in train.columns if not c in ct.RMV]
     NUMS = [c for c in FEATURES if not c in CATS]
     combined_df = combine_train_test(train, test)
-    # new features
-    combined_df = add_features(combined_df, NUMS, CATS)
+    # count nans
+    combined_df['nan_value_num_cnt'] = combined_df[NUMS].isna().sum(axis=1)
+    combined_df['nan_value_cat_cnt'] = combined_df[CATS].isna().sum(axis=1)
     # data cleaning numerical
-    combined_df = recalculate_hla_sums(combined_df)
-    # new features added
-    FEATURES = [c for c in combined_df.columns if not c in ct.RMV and c != 'df_kind']
-    NUMS = [c for c in FEATURES if not c in CATS]
     num_df = knn_impute(combined_df, NUMS)
     combined_df[NUMS] = num_df[NUMS]
+    # new features
+    combined_df = add_features(combined_df, NUMS)
+    FEATURES = [c for c in combined_df.columns if not c in ct.RMV and c != 'df_kind']
+    NUMS = [c for c in FEATURES if not c in CATS]
     # data cleaning categorical
     MISS_COLS = ['conditioning_intensity', 'cyto_score', 'tce_imm_match', 
                  'tce_div_match', 'cyto_score_detail', 'mrd_hct', 'tce_match']
