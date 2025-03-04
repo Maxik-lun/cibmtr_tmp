@@ -1,4 +1,5 @@
-from .get_data import prepare_data
+from .get_data import prepare_data, add_features, combine_train_test, recalculate_hla_sums
+from .imputation import knn_impute, catboost_iterimpute
 from . import constants as ct
 from . import target_gen as tg
 import numpy as np
@@ -29,3 +30,47 @@ def baseline_preprocess(train_path = None, test_path = None, data_info = None):
         test[c] = test[c].fillna("NAN").astype('category')
     FEATURES = [c for c in train.columns if not c in ct.RMV]
     return train, test, CATS, FEATURES
+
+def advanced_preprocess(train_path = None, test_path = None, data_info = None):
+    train, test, CATS = prepare_data(train_path, test_path, data_info)
+    FEATURES = [c for c in train.columns if not c in ct.RMV]
+    NUMS = [c for c in FEATURES if not c in CATS]
+    combined_df = combine_train_test(train, test)
+    # new features
+    combined_df = add_features(combined_df, NUMS, CATS)
+    NEW_FEATURES = [c for c in combined_df.columns if not c in ct.RMV and c != 'df_kind']
+    # data cleaning numerical
+    combined_df = recalculate_hla_sums(combined_df)
+    num_df = knn_impute(combined_df, NUMS)
+    combined_df[NUMS] = num_df[NUMS]
+    # data cleaning categorical
+    MISS_COLS = ['conditioning_intensity', 'cyto_score', 'tce_imm_match', 
+                 'tce_div_match', 'cyto_score_detail', 'mrd_hct', 'tce_match']
+    cat_params={
+        'n_estimators': 200,
+        'depth': 6,
+        'eta': 0.08,
+        'colsample_bylevel': 0.7,
+        'min_data_in_leaf': 8,
+        'l2_leaf_reg': 0.7,
+        'one_hot_max_size': 10,
+        'max_ctr_complexity': 6,
+        'grow_policy': 'Lossguide',
+        'bootstrap_type': 'Bayesian',
+        'eval_metric': 'Accuracy',
+        'loss_function': 'MultiClass',
+    }
+    cat_df = catboost_iterimpute(combined_df, CATS, NEW_FEATURES, MISS_COLS, cat_params)
+    combined_df[CATS] = cat_df[CATS]
+    # for xgb
+    for c in CATS:
+        combined_df[c] = combined_df[c].astype('category')
+    train_new = combined_df.query("df_kind == 'train'")
+    test_new = combined_df.query("df_kind == 'test'")
+    train_new = train_new.set_index(train.index)
+    test_new = test_new.set_index(test.index)
+    del train_new['df_kind']
+    del test_new['df_kind']
+    del test_new['efs']
+    del test_new['efs_time']
+    return train_new, test_new, CATS, FEATURES
