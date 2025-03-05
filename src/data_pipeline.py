@@ -31,7 +31,8 @@ def baseline_preprocess(train_path = None, test_path = None, data_info = None):
     FEATURES = [c for c in train.columns if not c in ct.RMV]
     return train, test, CATS, FEATURES
 
-def advanced_preprocess(train_path = None, test_path = None, data_info = None, threshold = 0.8):
+def advanced_preprocess(train_path = None, test_path = None, data_info = None, 
+                        threshold = 0.9, max_iterations = 2):
     train, test, CATS = prepare_data(train_path, test_path, data_info)
     FEATURES = [c for c in train.columns if not c in ct.RMV]
     NUMS = [c for c in FEATURES if not c in CATS]
@@ -46,7 +47,7 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None, t
     MISS_COLS = ['conditioning_intensity', 'cyto_score', 'tce_imm_match', 
                  'tce_div_match', 'cyto_score_detail', 'mrd_hct', 'tce_match']
     cat_params={
-        'n_estimators': 200,
+        'n_estimators': 100,
         'depth': 6,
         'eta': 0.08,
         'colsample_bylevel': 0.7,
@@ -59,7 +60,7 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None, t
         'eval_metric': 'Accuracy',
         'loss_function': 'MultiClass',
     }
-    cat_df = catboost_iterimpute(combined_df, CATS, FEATURES, MISS_COLS, cat_params, threshold)
+    cat_df = catboost_iterimpute(combined_df, CATS, FEATURES, MISS_COLS, cat_params, threshold, max_iterations)
     combined_df[CATS] = cat_df[CATS]
     # new features
     combined_df = add_features(combined_df, NUMS)
