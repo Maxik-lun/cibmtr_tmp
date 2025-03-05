@@ -31,8 +31,7 @@ def baseline_preprocess(train_path = None, test_path = None, data_info = None):
     FEATURES = [c for c in train.columns if not c in ct.RMV]
     return train, test, CATS, FEATURES
 
-def advanced_preprocess(train_path = None, test_path = None, data_info = None, 
-                        threshold = 0.9, max_iterations = 2):
+def advanced_preprocess(train_path = None, test_path = None, data_info = None):
     train, test, CATS = prepare_data(train_path, test_path, data_info)
     FEATURES = [c for c in train.columns if not c in ct.RMV]
     NUMS = [c for c in FEATURES if not c in CATS]
@@ -43,32 +42,13 @@ def advanced_preprocess(train_path = None, test_path = None, data_info = None,
     # data cleaning numerical
     num_df = knn_impute(combined_df, NUMS)
     combined_df[NUMS] = num_df[NUMS]
-    # data cleaning categorical
-    MISS_COLS = ['conditioning_intensity', 'cyto_score', 'tce_imm_match', 
-                 'tce_div_match', 'cyto_score_detail', 'mrd_hct', 'tce_match']
-    cat_params={
-        'n_estimators': 100,
-        'depth': 6,
-        'eta': 0.08,
-        'colsample_bylevel': 0.7,
-        'min_data_in_leaf': 8,
-        'l2_leaf_reg': 0.7,
-        'one_hot_max_size': 10,
-        'max_ctr_complexity': 6,
-        'grow_policy': 'Lossguide',
-        'bootstrap_type': 'Bayesian',
-        'eval_metric': 'Accuracy',
-        'loss_function': 'MultiClass',
-    }
-    cat_df = catboost_iterimpute(combined_df, CATS, FEATURES, MISS_COLS, cat_params, threshold, max_iterations)
-    combined_df[CATS] = cat_df[CATS]
     # new features
     combined_df = add_features(combined_df, NUMS)
     FEATURES = [c for c in combined_df.columns if not c in ct.RMV and c != 'df_kind']
     NUMS = [c for c in FEATURES if not c in CATS]
     # for xgb
     for c in CATS:
-        combined_df[c] = combined_df[c].astype('category')
+        combined_df[c] = combined_df[c].fillna('NAN').astype('category')
     train_new = combined_df.query("df_kind == 'train'")
     test_new = combined_df.query("df_kind == 'test'")
     train_new = train_new.set_index(train.index)
